@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "../styles/SigninPage.css";
 
 const SigninPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,10 +16,24 @@ const SigninPage = () => {
         email,
         password,
       });
-      setMessage(response.data.message);
+
+      // Spara token i sessionStorage
+      sessionStorage.setItem("token", response.data.token);
+
+      sessionStorage.setItem(
+        "user",
+        JSON.stringify({
+          email: email,
+          isAdmin: response.data.isAdmin,
+        })
+      );
+
+      setMessage("Inloggning lyckades!");
+
+      setTimeout(() => navigate("/userpage"), 1500);
     } catch (error) {
       setMessage(
-        error.response.data.message || "Ett fel uppstod vid inloggning"
+        error.response?.data?.message || "Ett fel uppstod vid inloggning"
       );
     }
   };
