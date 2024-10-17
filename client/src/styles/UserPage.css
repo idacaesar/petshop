@@ -1,3 +1,5 @@
+/* UserPage.css */
+
 * {
   margin: 0;
   padding: 0;
@@ -8,26 +10,27 @@ body,
 html {
   height: 100%;
   font-family: "Arial", sans-serif;
-  font-size: 16px;
-  background-color: #f5f5dc;
+  font-size: 14px;
+  background: linear-gradient(90deg, #141e30, #243b55);
+  color: #e0e0e0;
 }
 
 .webshop {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  width: 100%;
-  /* max-width property removed */
+  min-width: 100vw;
 }
 
 .webshop-header {
-  background-color: #8fbc8f;
-  color: #333;
-  padding: 1rem;
+  background-color: #1463bd;
+  color: #e0e0e0;
+  padding: 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .webshop-header h1 {
@@ -38,7 +41,7 @@ html {
   display: none;
   background: none;
   border: none;
-  color: #333;
+  color: #e0e0e0;
   font-size: 1.5rem;
   cursor: pointer;
 }
@@ -49,39 +52,46 @@ html {
 }
 
 .webshop-header nav ul li {
-  margin-right: 1rem;
+  margin-right: 0.5rem;
 }
 
 .webshop-header nav ul li a {
-  color: #333;
+  color: #e0e0e0;
   text-decoration: none;
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 50px;
+  transition: background-color 0.3s ease;
 }
 
 .webshop-header nav ul li a.active,
 .webshop-header nav ul li a:hover {
-  background-color: #9acd32;
-  border-radius: 4px;
+  background-color: #243b55;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .user-info span {
-  margin-right: 1rem;
+  margin-right: 0.5rem;
 }
 
 .logout-button {
-  background-color: #daa520;
-  color: #333;
+  background-color: #e0e0e0;
+  color: #141e30;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 50px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  transition: background-color 0.3s ease;
+}
+
+.logout-button:hover {
+  background-color: #1463bd;
+  color: #e0e0e0;
 }
 
 .webshop-content {
@@ -91,106 +101,106 @@ html {
 }
 
 .sidebar {
-  width: 200px;
-  background-color: #f0e68c;
-  padding: 1rem;
+  width: 150px;
+  background-color: rgba(20, 30, 48, 0.7);
+  padding: 0.5rem;
   overflow-y: auto;
 }
 
 .sidebar h2 {
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-  color: #556b2f;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  color: #e0e0e0;
 }
 
 .sidebar ul li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .sidebar ul li a {
-  color: #6b8e23;
+  color: #e0e0e0;
   text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.sidebar ul li a:hover {
+  color: #1463bd;
 }
 
 .product-grid {
   flex-grow: 1;
-  padding: 1rem;
+  padding: 0.5rem;
   overflow-y: auto;
 }
 
 .product-grid h2 {
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-  color: #556b2f;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  color: #e0e0e0;
 }
 
 .products {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+  gap: 16px;
 }
 
 .product-card {
-  border: 1px solid #bdb76b;
-  border-radius: 4px;
-  padding: 1rem;
+  border: 1px solid #243b55;
+  border-radius: 8px;
+  padding: 0.5rem;
   text-align: center;
-  background-color: #fafad2;
+  background-color: rgba(36, 59, 85, 0.7);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 }
 
 .product-image {
   height: 150px;
-  background-color: #eee8aa;
-  margin-bottom: 1rem;
+  background-color: #141e30;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
 }
 
 .product-card h3 {
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
-  color: #556b2f;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  color: #e0e0e0;
 }
 
 .product-card p {
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  color: #6b8e23;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: #a0a0a0;
 }
 
 .product-card button {
-  background-color: #9acd32;
-  color: #333;
+  background-color: #1463bd;
+  color: #e0e0e0;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 50px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  transition: background-color 0.3s ease;
 }
 
 .product-card button:hover {
-  background-color: #6b8e23;
-  color: #fff;
+  background-color: #e0e0e0;
+  color: #141e30;
 }
 
 .webshop-footer {
-  background-color: #8fbc8f;
-  color: #333;
+  background-color: #1463bd;
+  color: #e0e0e0;
   text-align: center;
-  padding: 1rem;
-  font-size: 0.9rem;
-}
-
-@media (max-width: 1024px) {
-  .webshop {
-    font-size: 14px;
-  }
-
-  .sidebar {
-    width: 180px;
-  }
-
-  .products {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 768px) {
@@ -231,16 +241,17 @@ html {
   }
 
   .products {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 480px) {
-  .webshop {
-    font-size: 12px;
+  .products {
+    grid-template-columns: 1fr;
   }
 
-  .products {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  .product-card {
+    max-width: 300px;
+    margin: 0 auto;
   }
 }

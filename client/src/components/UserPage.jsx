@@ -89,7 +89,9 @@ const UserPage = () => {
         </section>
       </main>
       <footer className="webshop-footer">
-        <p>&copy; 2024 PetShop. Egendesignad av Ida Caesar.</p>
+        <p>
+          &copy; 2024 PetShop. Egendesignad av Ida Caesar och Andreas Ottoson.
+        </p>
       </footer>
     </div>
   );
