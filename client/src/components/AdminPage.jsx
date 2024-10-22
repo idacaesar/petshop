@@ -13,7 +13,12 @@ const AdminPage = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get("http://localhost:5001/api/products");
+      const token = sessionStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/api/products", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setProducts(response.data);
     } catch (error) {
       console.error("Kunde inte hämta produkter:", error);
@@ -26,7 +31,7 @@ const AdminPage = () => {
     setMessage("");
 
     try {
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
       await axios.post(
         "http://localhost:5001/api/products",
         {

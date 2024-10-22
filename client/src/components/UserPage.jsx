@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "../styles/UserPage.css";
 
 const UserPage = () => {
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -12,7 +15,24 @@ const UserPage = () => {
     if (userData) {
       setUser(userData);
     }
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const token = sessionStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/api/products", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setProducts(response.data);
+    } catch (error) {
+      console.error("Kunde inte hämta produkter:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
@@ -20,8 +40,12 @@ const UserPage = () => {
     navigate("/signinpage");
   };
 
-  if (!user) {
+  if (loading) {
     return <div className="loading">Laddar...</div>;
+  }
+
+  if (!user) {
+    return <div className="loading">Var god logga in...</div>;
   }
 
   return (
@@ -75,16 +99,20 @@ const UserPage = () => {
           </ul>
         </aside>
         <section className="product-grid">
-          <h2>Populära produkter</h2>
+          <h2>Våra produkter</h2>
           <div className="products">
-            {[1, 2, 3, 4].map((product) => (
-              <div key={product} className="product-card">
-                <div className="product-image"></div>
-                <h3>Produkt {product}</h3>
-                <p>Pris: {product * 100} kr</p>
-                <button>Lägg i varukorg</button>
-              </div>
-            ))}
+            {products.length > 0 ? (
+              products.map((product) => (
+                <div key={product._id} className="product-card">
+                  <div className="product-image"></div>
+                  <h3>{product.name}</h3>
+                  <p>Pris: {product.price} kr</p>
+                  <button>Lägg i varukorg</button>
+                </div>
+              ))
+            ) : (
+              <p>Inga produkter tillgängliga för tillfället.</p>
+            )}
           </div>
         </section>
       </main>
