@@ -8,6 +8,13 @@ const UserPage = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState({});
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    comment: "",
+  });
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,10 +34,73 @@ const UserPage = () => {
         },
       });
       setProducts(response.data);
+
+      // Hämta recensioner för varje produkt
+      const reviewsData = {};
+      for (const product of response.data) {
+        const reviewsResponse = await axios.get(
+          `http://localhost:5001/api/products/${product._id}/reviews`
+        );
+        reviewsData[product._id] = reviewsResponse.data;
+      }
+      setReviews(reviewsData);
     } catch (error) {
-      console.error("Kunde inte hämta produkter:", error);
+      console.error("Kunde inte hämta data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReviewSubmit = async (productId) => {
+    try {
+      const token = sessionStorage.getItem("token");
+      await axios.post(
+        `http://localhost:5001/api/products/${productId}/reviews`,
+        newReview,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Uppdatera recensionerna för denna produkt
+      const reviewsResponse = await axios.get(
+        `http://localhost:5001/api/products/${productId}/reviews`
+      );
+      setReviews({
+        ...reviews,
+        [productId]: reviewsResponse.data,
+      });
+
+      // Återställ formuläret
+      setNewReview({ rating: 5, comment: "" });
+      setSelectedProduct(null);
+      setError("");
+    } catch (error) {
+      setError(error.response?.data?.message || "Kunde inte skapa recension");
+    }
+  };
+
+  const handleDeleteReview = async (reviewId, productId) => {
+    try {
+      const token = sessionStorage.getItem("token");
+      await axios.delete(`http://localhost:5001/api/reviews/${reviewId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Uppdatera recensionerna för denna produkt
+      const reviewsResponse = await axios.get(
+        `http://localhost:5001/api/products/${productId}/reviews`
+      );
+      setReviews({
+        ...reviews,
+        [productId]: reviewsResponse.data,
+      });
+    } catch (error) {
+      console.error("Kunde inte ta bort recension:", error);
     }
   };
 
@@ -48,6 +118,15 @@ const UserPage = () => {
     return <div className="loading">Var god logga in...</div>;
   }
 
+  const calculateAverageRating = (productReviews) => {
+    if (!productReviews || productReviews.length === 0)
+      return "Ingen rating än";
+    const average =
+      productReviews.reduce((acc, review) => acc + review.rating, 0) /
+      productReviews.length;
+    return average.toFixed(1);
+  };
+
   return (
     <div className="webshop">
       <header className="webshop-header">
@@ -63,13 +142,7 @@ const UserPage = () => {
               </a>
             </li>
             <li>
-              <a href="/adminpage">Produkter</a>
-            </li>
-            <li>
-              <a href="#">Om oss</a>
-            </li>
-            <li>
-              <a href="#">Kontakt</a>
+              <a href="/adminpage">Skapa produkt</a>
             </li>
           </ul>
         </nav>
@@ -107,7 +180,86 @@ const UserPage = () => {
                   <div className="product-image"></div>
                   <h3>{product.name}</h3>
                   <p>Pris: {product.price} kr</p>
+                  <div className="product-rating">
+                    <p>
+                      Rating: {calculateAverageRating(reviews[product._id])}
+                    </p>
+                  </div>
                   <button>Lägg i varukorg</button>
+
+                  {/* Recensioner */}
+                  <div className="reviews-section">
+                    <h4>Recensioner</h4>
+                    {reviews[product._id]?.map((review) => (
+                      <div key={review._id} className="review">
+                        <div className="review-header">
+                          <span>★ {review.rating}</span>
+                          <span>{review.userId.email}</span>
+                          {user.email === review.userId.email && (
+                            <button
+                              onClick={() =>
+                                handleDeleteReview(review._id, product._id)
+                              }
+                              className="delete-review"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                        <p>{review.comment}</p>
+                      </div>
+                    ))}
+
+                    {/* Formulär för ny recension */}
+                    {selectedProduct === product._id ? (
+                      <div className="review-form">
+                        {error && <p className="error">{error}</p>}
+                        <select
+                          value={newReview.rating}
+                          onChange={(e) =>
+                            setNewReview({
+                              ...newReview,
+                              rating: Number(e.target.value),
+                            })
+                          }
+                        >
+                          {[5, 4, 3, 2, 1].map((num) => (
+                            <option key={num} value={num}>
+                              {num} ★
+                            </option>
+                          ))}
+                        </select>
+                        <textarea
+                          value={newReview.comment}
+                          onChange={(e) =>
+                            setNewReview({
+                              ...newReview,
+                              comment: e.target.value,
+                            })
+                          }
+                          placeholder="Skriv din recension här..."
+                          maxLength={1000}
+                        />
+                        <div className="review-buttons">
+                          <button
+                            onClick={() => handleReviewSubmit(product._id)}
+                          >
+                            Skicka
+                          </button>
+                          <button onClick={() => setSelectedProduct(null)}>
+                            Avbryt
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedProduct(product._id)}
+                        className="write-review"
+                      >
+                        Skriv recension
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (

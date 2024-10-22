@@ -1,30 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 
 const AdminPage = () => {
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [message, setMessage] = useState("");
-  const [products, setProducts] = useState([]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
-    try {
-      const token = sessionStorage.getItem("token");
-      const response = await axios.get("http://localhost:5001/api/products", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setProducts(response.data);
-    } catch (error) {
-      console.error("Kunde inte hämta produkter:", error);
-      setMessage("Kunde inte hämta produkter. Var god försök igen senare.");
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,7 +27,6 @@ const AdminPage = () => {
       setMessage("Produkt skapad framgångsrikt!");
       setProductName("");
       setProductPrice("");
-      fetchProducts(); // Uppdatera produktlistan efter att en ny produkt har skapats
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
@@ -58,24 +37,8 @@ const AdminPage = () => {
 
   return (
     <div>
-      <h1>Adminsida</h1>
-      <p>
-        Välkommen till adminsidan. Denna sida är endast tillgänglig för
-        administratörer.
-      </p>
-
-      <h2>Befintliga produkter</h2>
-      {products.length > 0 ? (
-        <ul>
-          {products.map((product) => (
-            <li key={product._id}>
-              {product.name} - {product.price} kr
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Inga produkter tillgängliga.</p>
-      )}
+      <h1>Skapa en ny produkt</h1>
+      <p>Du kan endast skapa en produkt om du är en administratör.</p>
 
       <h2>Skapa ny produkt</h2>
       <form onSubmit={handleSubmit}>
