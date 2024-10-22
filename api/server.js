@@ -48,6 +48,22 @@ const authenticateToken = (req, res, next) => {
 app.post("/api/signup", async (req, res) => {
   const { email, password, isAdmin } = req.body;
 
+  // Kontrollera om lösenordet är minst 8 tecken
+  if (password.length < 8) {
+    return res.status(400).json({ message: "Lösenordet måste vara minst 8 tecken långt." });
+  }
+
+  // Kontrollera om lösenordet är samma som e-posten
+  if (password.toLowerCase() === email.toLowerCase()) {
+    return res.status(400).json({ message: "Lösenordet får inte vara samma som e-posten." });
+  }
+
+  // Kontrollera om lösenordet är bara samma tecken upprepat
+  const isRepeatedChars = password.split("").every((char) => char === password[0]);
+  if (isRepeatedChars) {
+    return res.status(400).json({ message: "Lösenordet får inte vara samma tecken upprepat." });
+  }
+
   try {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -66,6 +82,7 @@ app.post("/api/signup", async (req, res) => {
       .json({ message: "Kunde inte skapa användare", error: error.message });
   }
 });
+
 
 app.post("/api/signin", async (req, res) => {
   const { email, password } = req.body;

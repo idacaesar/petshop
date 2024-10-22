@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import SigninPage from "./components/SigninPage";

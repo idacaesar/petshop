@@ -1,120 +1,121 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "../styles/SignupPage.css";
 
 const SignupPage = () => {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  // Funktion för att kontrollera om lösenordet är bara upprepade tecken
+  const isRepeatedChars = (str) => {
+    return str.split("").every((char) => char === str[0]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
 
-    // Validering
-    if (formData.password !== formData.confirmPassword) {
-      setError("Lösenorden matchar inte");
+    // Kontrollera om lösenorden matchar
+    if (password !== confirmPassword) {
+      setMessage("Lösenorden matchar inte.");
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Lösenordet måste vara minst 6 tecken långt");
+    // Kontrollera om lösenordet är minst 8 tecken långt
+    if (password.length < 8) {
+      setMessage("Lösenordet måste vara minst 8 tecken.");
+      return;
+    }
+
+    // Kontrollera om lösenordet är samma som e-posten
+    if (password.toLowerCase() === email.toLowerCase()) {
+      setMessage("Lösenordet får inte vara samma som e-postadressen.");
+      return;
+    }
+
+    // Kontrollera om lösenordet är bara samma tecken upprepat
+    if (isRepeatedChars(password)) {
+      setMessage("Lösenordet får inte vara samma tecken upprepat.");
       return;
     }
 
     try {
-      setLoading(true);
-      const response = await fetch("http://localhost:5001/api/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      await axios.post("http://localhost:5001/api/signup", {
+        email,
+        password,
       });
 
-      const data = await response.json();
+      setMessage("Registrering lyckades! Du kan nu logga in.");
 
-      if (!response.ok) {
-        throw new Error(data.message || "Något gick fel");
-      }
-
-      setSuccess("Konto skapat! Du kan nu logga in.");
-      setFormData({ email: "", password: "", confirmPassword: "" });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      // Omregistrera användaren till inloggningssidan efter 1,5 sekunder
+      setTimeout(() => navigate("/signinpage"), 1500);
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message || "Ett fel uppstod vid registrering"
+      );
     }
   };
 
   return (
     <div className="signup-container">
-      <div className="signup-card">
-        <h2>Skapa konto</h2>
+      <h1 className="signup-title">Skapa ett konto hos PetShop</h1>
+      <p className="signup-description">Fyll i dina uppgifter nedan</p>
 
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
+      <form onSubmit={handleSubmit} className="signup-form">
+        <div className="form-group">
+          <label htmlFor="email" className="form-label">
+            E-post
+          </label>
+          <input
+            type="email"
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="form-input"
+            placeholder="Din e-postadress"
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="signup-form">
-          <div className="form-group">
-            <label htmlFor="email">E-post</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              placeholder="Din e-postadress"
-            />
-          </div>
+        <div className="form-group">
+          <label htmlFor="password" className="form-label">
+            Lösenord
+          </label>
+          <input
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="form-input"
+            placeholder="Välj ett lösenord"
+          />
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Lösenord</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="Välj ett lösenord"
-            />
-          </div>
+        <div className="form-group">
+          <label htmlFor="confirmPassword" className="form-label">
+            Bekräfta lösenord
+          </label>
+          <input
+            type="password"
+            id="confirmPassword"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            className="form-input"
+            placeholder="Bekräfta ditt lösenord"
+          />
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Bekräfta lösenord</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              placeholder="Bekräfta ditt lösenord"
-            />
-          </div>
+        <button type="submit" className="signup-button">
+          Registrera
+        </button>
+      </form>
 
-          <button type="submit" className="signup-button" disabled={loading}>
-            {loading ? "Skapar konto..." : "Skapa konto"}
-          </button>
-        </form>
-      </div>
+      {message && <p className="message">{message}</p>}
     </div>
   );
 };
