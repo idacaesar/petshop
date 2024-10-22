@@ -21,7 +21,14 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
-const JWT_SECRET = "JWT_SECRET"; // TO DO
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+});
+
+const Product = mongoose.model("Product", productSchema);
+
+const JWT_SECRET = "JWT_SECRET"; // TO DO: Ändra detta till en säker nyckel i produktion
 const JWT_EXPIRATION = "8h";
 
 // Middleware för att verifiera JWT
@@ -63,30 +70,61 @@ app.post("/api/signup", async (req, res) => {
 app.post("/api/signin", async (req, res) => {
   const { email, password } = req.body;
 
-  // try {
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.status(400).json({ message: "Användare hittades inte" });
-  }
-  const validPassword = await bcrypt.compare(password, user.password);
-  if (!validPassword) {
-    return res.status(400).json({ message: "Ogiltigt lösenord" });
-  }
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Användare hittades inte" });
+    }
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(400).json({ message: "Ogiltigt lösenord" });
+    }
 
-  const token = jwt.sign(
-    { email: user.email, isAdmin: user.isAdmin },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRATION }
-  );
+    const token = jwt.sign(
+      { email: user.email, isAdmin: user.isAdmin },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRATION }
+    );
 
-  res.json({ token, isAdmin: user.isAdmin });
-  // } catch (error) {
-  //   res.status(500).json({ message: "Serverfel" });
-  // }
+    res.json({ token, isAdmin: user.isAdmin });
+  } catch (error) {
+    res.status(500).json({ message: "Serverfel" });
+  }
 });
 
 app.get("/api/protected", authenticateToken, (req, res) => {
   res.json({ message: "Detta är en skyddad rutt", user: req.user });
+});
+
+app.get("/api/products", async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.json(products);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Kunde inte hämta produkter", error: error.message });
+  }
+});
+
+app.post("/api/products", authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({
+      message: "Åtkomst nekad. Endast administratörer kan skapa produkter.",
+    });
+  }
+
+  const { name, price } = req.body;
+
+  try {
+    const product = new Product({ name, price });
+    await product.save();
+    res.status(201).json({ message: "Produkt skapad", product });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Kunde inte skapa produkt", error: error.message });
+  }
 });
 
 const PORT = process.env.PORT || 5001;

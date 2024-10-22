@@ -39,7 +39,7 @@ const UserPage = () => {
               </a>
             </li>
             <li>
-              <a href="#">Produkter</a>
+              <a href="/adminpage">Produkter</a>
             </li>
             <li>
               <a href="#">Om oss</a>
