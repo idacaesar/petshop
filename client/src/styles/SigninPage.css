@@ -86,3 +86,20 @@ html {
 .signin-button:active {
   transform: translateY(0);
 }
+
+.signup-link {
+  text-align: center;
+  margin-top: 1rem;
+  color: #666;
+}
+
+.signup-link a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+
+.signup-link a:hover {
+  text-decoration: underline;
+}

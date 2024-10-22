@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Lägg till Link
 import "../styles/SigninPage.css";
 
 const SigninPage = () => {
@@ -77,6 +77,9 @@ const SigninPage = () => {
         </button>
       </form>
       {message && <p className="message">{message}</p>}
+      <p className="signup-link">
+        Har du inget konto? <Link to="/signup">Skapa ett här</Link>
+      </p>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import SigninPage from "./components/SigninPage";
+import SignupPage from "./components/SignupPage"; // Lägg till denna import
 import UserPage from "./components/UserPage";
 import AdminPage from "./components/AdminPage";
 
@@ -16,14 +17,14 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// App.js
-
 function App() {
   return (
     <Router>
       <div>
         <Routes>
           <Route path="/signinpage" element={<SigninPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          {/* Ny route för signup */}
           <Route
             path="/"
             element={
