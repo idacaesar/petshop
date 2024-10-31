@@ -15,6 +15,9 @@ const UserPage = () => {
   });
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [error, setError] = useState("");
+  const [reservations, setReservations] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [reservationMessage, setReservationMessage] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,7 +26,73 @@ const UserPage = () => {
       setUser(userData);
     }
     fetchProducts();
+    fetchReservations();
   }, []);
+
+  const fetchReservations = async () => {
+    try {
+      const token = sessionStorage.getItem("token");
+      const response = await axios.get(
+        "http://localhost:5001/api/reservations",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setReservations(response.data);
+    } catch (error) {
+      console.error("Kunde inte hämta reservationer:", error);
+    }
+  };
+
+  const handleReservation = async (productId) => {
+    try {
+      const token = sessionStorage.getItem("token");
+      await axios.post(
+        "http://localhost:5001/api/reservations",
+        { productId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setReservationMessage("Produkt reserverad!");
+      setTimeout(() => setReservationMessage(""), 3000);
+
+      await Promise.all([fetchProducts(), fetchReservations()]);
+      setIsCartOpen(true);
+    } catch (error) {
+      setReservationMessage(
+        error.response?.data?.message || "Kunde inte reservera produkten"
+      );
+    }
+  };
+
+  const removeReservation = async (reservationId) => {
+    try {
+      const token = sessionStorage.getItem("token");
+      await axios.delete(
+        `http://localhost:5001/api/reservations/${reservationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setReservationMessage("Reservation borttagen!");
+      setTimeout(() => setReservationMessage(""), 3000);
+
+      await Promise.all([fetchProducts(), fetchReservations()]);
+    } catch (error) {
+      setReservationMessage(
+        error.response?.data?.message || "Kunde inte ta bort reservationen"
+      );
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -35,7 +104,6 @@ const UserPage = () => {
       });
       setProducts(response.data);
 
-      // Hämta recensioner för varje produkt
       const reviewsData = {};
       for (const product of response.data) {
         const reviewsResponse = await axios.get(
@@ -64,7 +132,6 @@ const UserPage = () => {
         }
       );
 
-      // Uppdatera recensionerna för denna produkt
       const reviewsResponse = await axios.get(
         `http://localhost:5001/api/products/${productId}/reviews`
       );
@@ -73,7 +140,6 @@ const UserPage = () => {
         [productId]: reviewsResponse.data,
       });
 
-      // Återställ formuläret
       setNewReview({ rating: 5, comment: "" });
       setSelectedProduct(null);
       setError("");
@@ -91,7 +157,6 @@ const UserPage = () => {
         },
       });
 
-      // Uppdatera recensionerna för denna produkt
       const reviewsResponse = await axios.get(
         `http://localhost:5001/api/products/${productId}/reviews`
       );
@@ -147,12 +212,54 @@ const UserPage = () => {
           </ul>
         </nav>
         <div className="user-info">
+          <button
+            className="cart-button"
+            onClick={() => setIsCartOpen(!isCartOpen)}
+          >
+            Reservationer ({reservations.length})
+          </button>
           <span>{user.email}</span>
           <button className="logout-button" onClick={handleLogout}>
             Logga ut
           </button>
         </div>
       </header>
+
+      {isCartOpen && (
+        <div className="reservation-cart">
+          <div className="cart-header">
+            <h3>Dina reservationer</h3>
+            <button onClick={() => setIsCartOpen(false)} className="close-cart">
+              ×
+            </button>
+          </div>
+          {reservationMessage && (
+            <div className="reservation-message">{reservationMessage}</div>
+          )}
+          {reservations.length > 0 ? (
+            <div className="cart-items">
+              {reservations.map((reservation) => (
+                <div key={reservation._id} className="cart-item">
+                  <span>{reservation.productId.name}</span>
+                  <span>{reservation.productId.price} kr</span>
+                  <button
+                    onClick={() => removeReservation(reservation._id)}
+                    className="remove-reservation"
+                  >
+                    Ta bort
+                  </button>
+                </div>
+              ))}
+              <p className="cart-total">
+                Totalt antal reservationer: {reservations.length}/5
+              </p>
+            </div>
+          ) : (
+            <p className="cart-empty">Inga aktiva reservationer</p>
+          )}
+        </div>
+      )}
+
       <main className="webshop-content">
         <aside className="sidebar">
           <h2>Kategorier</h2>
@@ -180,14 +287,42 @@ const UserPage = () => {
                   <div className="product-image"></div>
                   <h3>{product.name}</h3>
                   <p>Pris: {product.price} kr</p>
+                  <p>I lager: {product.stockCount}</p>
                   <div className="product-rating">
                     <p>
                       Rating: {calculateAverageRating(reviews[product._id])}
                     </p>
                   </div>
-                  <button>Lägg i varukorg</button>
+                  <button
+                    onClick={() => handleReservation(product._id)}
+                    disabled={
+                      product.stockCount <= 0 ||
+                      reservations.some(
+                        (r) => r.productId._id === product._id
+                      ) ||
+                      reservations.length >= 5
+                    }
+                    className={
+                      product.stockCount <= 0
+                        ? "button-disabled"
+                        : reservations.some(
+                            (r) => r.productId._id === product._id
+                          )
+                        ? "button-reserved"
+                        : ""
+                    }
+                  >
+                    {product.stockCount <= 0
+                      ? "Slut i lager"
+                      : reservations.some(
+                          (r) => r.productId._id === product._id
+                        )
+                      ? "Reserverad"
+                      : reservations.length >= 5
+                      ? "Max reservationer uppnått"
+                      : "Reservera produkt"}
+                  </button>
 
-                  {/* Recensioner */}
                   <div className="reviews-section">
                     <h4>Recensioner</h4>
                     {reviews[product._id]?.map((review) => (
@@ -210,7 +345,6 @@ const UserPage = () => {
                       </div>
                     ))}
 
-                    {/* Formulär för ny recension */}
                     {selectedProduct === product._id ? (
                       <div className="review-form">
                         {error && <p className="error">{error}</p>}

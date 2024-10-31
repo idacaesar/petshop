@@ -6,6 +6,7 @@ import "../styles/UserPage.css";
 const AdminPage = () => {
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
+  const [stockCount, setStockCount] = useState(""); // Ny state för lagersaldo
   const [message, setMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -14,6 +15,11 @@ const AdminPage = () => {
     e.preventDefault();
     setMessage("");
 
+    if (parseInt(stockCount) < 0) {
+      setMessage("Lagersaldo kan inte vara negativt.");
+      return;
+    }
+
     try {
       const token = sessionStorage.getItem("token");
       await axios.post(
@@ -21,6 +27,7 @@ const AdminPage = () => {
         {
           name: productName,
           price: parseFloat(productPrice),
+          stockCount: parseInt(stockCount), // Lägg till stockCount i API-anropet
         },
         {
           headers: {
@@ -31,6 +38,7 @@ const AdminPage = () => {
       setMessage("Produkt skapad framgångsrikt!");
       setProductName("");
       setProductPrice("");
+      setStockCount(""); // Återställ lagersaldo
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
@@ -76,8 +84,8 @@ const AdminPage = () => {
         <p>Du kan endast skapa en produkt om du är en administratör.</p>
 
         <h2>Skapa ny produkt</h2>
-        <form onSubmit={handleSubmit}>
-          <div>
+        <form onSubmit={handleSubmit} className="create-product-form">
+          <div className="form-group">
             <label htmlFor="productName">Produktnamn:</label>
             <input
               type="text"
@@ -85,9 +93,10 @@ const AdminPage = () => {
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
               required
+              className="form-input"
             />
           </div>
-          <div>
+          <div className="form-group">
             <label htmlFor="productPrice">Pris:</label>
             <input
               type="number"
@@ -97,11 +106,27 @@ const AdminPage = () => {
               step="0.01"
               min="0"
               required
+              className="form-input"
             />
           </div>
-          <button type="submit">Skapa produkt</button>
+          <div className="form-group">
+            <label htmlFor="stockCount">Lagersaldo:</label>
+            <input
+              type="number"
+              id="stockCount"
+              value={stockCount}
+              onChange={(e) => setStockCount(e.target.value)}
+              min="0"
+              required
+              className="form-input"
+              placeholder="Ange antal i lager"
+            />
+          </div>
+          <button type="submit" className="submit-button">
+            Skapa produkt
+          </button>
         </form>
-        {message && <p>{message}</p>}
+        {message && <p className="message">{message}</p>}
       </main>
 
       <footer className="webshop-footer">

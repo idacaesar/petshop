@@ -28,6 +28,7 @@ const User = mongoose.model("User", userSchema);
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, required: true },
+  stockCount: { type: Number, required: true, default: 0 }, // Nytt fält
 });
 
 const Product = mongoose.model("Product", productSchema);
@@ -61,6 +62,26 @@ const reviewSchema = new mongoose.Schema({
 });
 
 const Review = mongoose.model("Review", reviewSchema);
+
+const reservationSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Product",
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    expires: 24 * 60 * 60,
+  },
+});
+
+const Reservation = mongoose.model("Reservation", reservationSchema);
 
 // Schema för inloggningsloggar
 const loginLogSchema = new mongoose.Schema({
@@ -235,10 +256,10 @@ app.post("/api/products", authenticateToken, async (req, res) => {
     });
   }
 
-  const { name, price } = req.body;
+  const { name, price, stockCount } = req.body; // Lägg till stockCount här
 
   try {
-    const product = new Product({ name, price });
+    const product = new Product({ name, price, stockCount }); // Inkludera stockCount
     await product.save();
     res.status(201).json({ message: "Produkt skapad", product });
   } catch (error) {
@@ -391,6 +412,116 @@ app.delete("/api/reviews/:reviewId", authenticateToken, async (req, res) => {
     });
   }
 });
+
+app.post("/api/reservations", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email });
+    const { productId } = req.body;
+
+    const userReservationsCount = await Reservation.countDocuments({
+      userId: user._id,
+    });
+    if (userReservationsCount >= 5) {
+      return res.status(400).json({
+        message: "Du har redan maximalt antal reservationer (5)",
+      });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Produkt hittades inte" });
+    }
+
+    if (product.stockCount <= 0) {
+      return res.status(400).json({ message: "Produkten är slut i lager" });
+    }
+
+    const existingReservation = await Reservation.findOne({
+      userId: user._id,
+      productId: product._id,
+    });
+
+    if (existingReservation) {
+      return res.status(400).json({
+        message: "Du har redan reserverat denna produkt",
+      });
+    }
+
+    const reservation = new Reservation({
+      userId: user._id,
+      productId: product._id,
+    });
+
+    product.stockCount -= 1;
+
+    await Promise.all([reservation.save(), product.save()]);
+
+    res.status(201).json({
+      message: "Reservation skapad",
+      reservation: {
+        ...reservation.toObject(),
+        productName: product.name,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Kunde inte skapa reservation",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/api/reservations", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email });
+    const reservations = await Reservation.find({ userId: user._id }).populate(
+      "productId",
+      "name price"
+    );
+
+    res.json(reservations);
+  } catch (error) {
+    res.status(500).json({
+      message: "Kunde inte hämta reservationer",
+      error: error.message,
+    });
+  }
+});
+
+app.delete(
+  "/api/reservations/:reservationId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const user = await User.findOne({ email: req.user.email });
+      const reservation = await Reservation.findById(req.params.reservationId);
+
+      if (!reservation) {
+        return res.status(404).json({ message: "Reservation hittades inte" });
+      }
+
+      if (reservation.userId.toString() !== user._id.toString()) {
+        return res.status(403).json({
+          message: "Du har inte behörighet att ta bort denna reservation",
+        });
+      }
+
+      const product = await Product.findById(reservation.productId);
+      if (product) {
+        product.stockCount += 1;
+        await product.save();
+      }
+
+      await reservation.deleteOne();
+      res.json({ message: "Reservation borttagen" });
+    } catch (error) {
+      res.status(500).json({
+        message: "Kunde inte ta bort reservation",
+        error: error.message,
+      });
+    }
+  }
+);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server kör på port ${PORT}`));
