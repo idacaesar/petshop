@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const xss = require("xss"); // Nytt paket för XSS-skydd
+const xss = require("xss");
 
 const app = express();
 app.use(express.json());
@@ -14,13 +14,13 @@ mongoose.connect("mongodb://localhost:27017/petshop", {
   useUnifiedTopology: true,
 });
 
-// Uppdaterat userSchema med nya fält för inloggningsförsök
+// Befintliga scheman och modeller
 const userSchema = new mongoose.Schema({
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   isAdmin: { type: Boolean, default: false },
-  loginAttempts: { type: Number, default: 0 }, // Nytt fält
-  lockUntil: { type: Date }, // Nytt fält
+  loginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date },
 });
 
 const User = mongoose.model("User", userSchema);
@@ -32,7 +32,6 @@ const productSchema = new mongoose.Schema({
 
 const Product = mongoose.model("Product", productSchema);
 
-// Nytt schema för reviews
 const reviewSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -53,7 +52,7 @@ const reviewSchema = new mongoose.Schema({
   comment: {
     type: String,
     required: true,
-    maxLength: 1000, // Begränsa kommentarslängden
+    maxLength: 1000,
   },
   createdAt: {
     type: Date,
@@ -63,12 +62,32 @@ const reviewSchema = new mongoose.Schema({
 
 const Review = mongoose.model("Review", reviewSchema);
 
-const JWT_SECRET = "JWT_SECRET"; // TO DO: Ändra detta till en säker nyckel i produktion
-const JWT_EXPIRATION = "8h";
+// Schema för inloggningsloggar
+const loginLogSchema = new mongoose.Schema({
+  timestamp: { type: Date, default: Date.now },
+  email: { type: String, required: true },
+  success: { type: Boolean, required: true },
+});
 
-// Konstanter för inloggningsförsök
+const LoginLog = mongoose.model("LoginLog", loginLogSchema);
+
+const JWT_SECRET = "JWT_SECRET";
+const JWT_EXPIRATION = "8h";
 const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_TIME = 60 * 1000; // 1 minut i millisekunder
+const LOCK_TIME = 60 * 1000;
+
+// Hjälpfunktion för att logga inloggningsförsök
+async function logLoginAttempt(email, success) {
+  try {
+    const loginLog = new LoginLog({
+      email,
+      success,
+    });
+    await loginLog.save();
+  } catch (error) {
+    console.error("Fel vid loggning av inloggningsförsök:", error);
+  }
+}
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -86,21 +105,18 @@ const authenticateToken = (req, res, next) => {
 app.post("/api/signup", async (req, res) => {
   const { email, password, isAdmin } = req.body;
 
-  // Kontrollera om lösenordet är minst 8 tecken
   if (password.length < 8) {
     return res
       .status(400)
       .json({ message: "Lösenordet måste vara minst 8 tecken långt." });
   }
 
-  // Kontrollera om lösenordet är samma som e-posten
   if (password.toLowerCase() === email.toLowerCase()) {
     return res
       .status(400)
       .json({ message: "Lösenordet får inte vara samma som e-posten." });
   }
 
-  // Kontrollera om lösenordet är bara samma tecken upprepat
   const isRepeatedChars = password
     .split("")
     .every((char) => char === password[0]);
@@ -135,12 +151,15 @@ app.post("/api/signin", async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) {
+      // Logga misslyckat försök - användare hittades inte
+      await logLoginAttempt(email, false);
       return res.status(400).json({ message: "Användare hittades inte" });
     }
 
-    // Kontrollera om kontot är låst
     if (user.lockUntil && user.lockUntil > new Date()) {
       const remainingTime = Math.ceil((user.lockUntil - new Date()) / 1000);
+      // Logga misslyckat försök - konto låst
+      await logLoginAttempt(email, false);
       return res.status(403).json({
         message: `För många misslyckade inloggningsförsök. Vänta ${remainingTime} sekunder innan du försöker igen.`,
         locked: true,
@@ -151,7 +170,9 @@ app.post("/api/signin", async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
-      // Öka antalet misslyckade inloggningsförsök
+      // Logga misslyckat försök - fel lösenord
+      await logLoginAttempt(email, false);
+
       user.loginAttempts = (user.loginAttempts || 0) + 1;
 
       if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
@@ -172,7 +193,9 @@ app.post("/api/signin", async (req, res) => {
       });
     }
 
-    // Återställ räknaren vid lyckad inloggning
+    // Logga lyckat inloggningsförsök
+    await logLoginAttempt(email, true);
+
     user.loginAttempts = 0;
     user.lockUntil = null;
     await user.save();
@@ -185,6 +208,7 @@ app.post("/api/signin", async (req, res) => {
 
     res.json({ token, isAdmin: user.isAdmin });
   } catch (error) {
+    console.error("Inloggningsfel:", error);
     res.status(500).json({ message: "Serverfel" });
   }
 });
@@ -224,18 +248,15 @@ app.post("/api/products", authenticateToken, async (req, res) => {
   }
 });
 
-// Nya routes för reviews
-// Hämta alla reviews för en produkt
 app.get("/api/products/:productId/reviews", async (req, res) => {
   try {
     const reviews = await Review.find({ productId: req.params.productId })
-      .populate("userId", "email") // Inkludera endast email från user
-      .sort({ createdAt: -1 }); // Sortera efter senaste först
+      .populate("userId", "email")
+      .sort({ createdAt: -1 });
 
-    // Sanitera kommentarer innan de skickas
     const sanitizedReviews = reviews.map((review) => ({
       ...review.toObject(),
-      comment: xss(review.comment), // Sanitera kommentaren
+      comment: xss(review.comment),
     }));
 
     res.json(sanitizedReviews);
@@ -247,25 +268,21 @@ app.get("/api/products/:productId/reviews", async (req, res) => {
   }
 });
 
-// Skapa en ny review
 app.post(
   "/api/products/:productId/reviews",
   authenticateToken,
   async (req, res) => {
     try {
-      // Hitta användaren baserat på email från JWT
       const user = await User.findOne({ email: req.user.email });
       if (!user) {
         return res.status(404).json({ message: "Användare hittades inte" });
       }
 
-      // Validera att produkten existerar
       const product = await Product.findById(req.params.productId);
       if (!product) {
         return res.status(404).json({ message: "Produkt hittades inte" });
       }
 
-      // Kontrollera om användaren redan har recenserat denna produkt
       const existingReview = await Review.findOne({
         productId: req.params.productId,
         userId: user._id,
@@ -277,7 +294,6 @@ app.post(
         });
       }
 
-      // Validera rating
       const rating = parseInt(req.body.rating);
       if (isNaN(rating) || rating < 1 || rating > 5) {
         return res.status(400).json({
@@ -285,7 +301,6 @@ app.post(
         });
       }
 
-      // Sanitera kommentaren och skapa review
       const sanitizedComment = xss(req.body.comment);
 
       const review = new Review({
@@ -301,7 +316,7 @@ app.post(
         message: "Recension skapad",
         review: {
           ...review.toObject(),
-          userId: { email: user.email }, // Inkludera användarens email i svaret
+          userId: { email: user.email },
         },
       });
     } catch (error) {
@@ -313,7 +328,6 @@ app.post(
   }
 );
 
-// Uppdatera en review
 app.put("/api/reviews/:reviewId", authenticateToken, async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.email });
@@ -323,14 +337,12 @@ app.put("/api/reviews/:reviewId", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "Recension hittades inte" });
     }
 
-    // Kontrollera att användaren äger recensionen
     if (review.userId.toString() !== user._id.toString()) {
       return res.status(403).json({
         message: "Du har inte behörighet att ändra denna recension",
       });
     }
 
-    // Validera och uppdatera
     if (req.body.rating) {
       const rating = parseInt(req.body.rating);
       if (isNaN(rating) || rating < 1 || rating > 5) {
@@ -355,7 +367,6 @@ app.put("/api/reviews/:reviewId", authenticateToken, async (req, res) => {
   }
 });
 
-// Ta bort en review
 app.delete("/api/reviews/:reviewId", authenticateToken, async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.email });
@@ -365,7 +376,6 @@ app.delete("/api/reviews/:reviewId", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "Recension hittades inte" });
     }
 
-    // Tillåt borttagning om användaren äger recensionen eller är admin
     if (review.userId.toString() !== user._id.toString() && !req.user.isAdmin) {
       return res.status(403).json({
         message: "Du har inte behörighet att ta bort denna recension",
