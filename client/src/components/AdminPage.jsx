@@ -6,7 +6,7 @@ import "../styles/UserPage.css";
 const AdminPage = () => {
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
-  const [stockCount, setStockCount] = useState(""); // Ny state för lagersaldo
+  const [stockCount, setStockCount] = useState("");
   const [message, setMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ const AdminPage = () => {
         {
           name: productName,
           price: parseFloat(productPrice),
-          stockCount: parseInt(stockCount), // Lägg till stockCount i API-anropet
+          stockCount: parseInt(stockCount),
         },
         {
           headers: {
@@ -38,7 +38,7 @@ const AdminPage = () => {
       setMessage("Produkt skapad framgångsrikt!");
       setProductName("");
       setProductPrice("");
-      setStockCount(""); // Återställ lagersaldo
+      setStockCount("");
     } catch (error) {
       setMessage(
         error.response?.data?.message ||

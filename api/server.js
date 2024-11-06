@@ -14,7 +14,7 @@ mongoose.connect("mongodb://localhost:27017/petshop", {
   useUnifiedTopology: true,
 });
 
-// Befintliga scheman och modeller
+// scheman
 const userSchema = new mongoose.Schema({
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
@@ -28,7 +28,7 @@ const User = mongoose.model("User", userSchema);
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, required: true },
-  stockCount: { type: Number, required: true, default: 0 }, // Nytt fält
+  stockCount: { type: Number, required: true, default: 0 },
 });
 
 const Product = mongoose.model("Product", productSchema);
@@ -97,11 +97,10 @@ const JWT_EXPIRATION = "8h";
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 60 * 1000;
 
-// Hjälpfunktion för att logga inloggningsförsök
 async function logLoginAttempt(email, success) {
   try {
     const loginLog = new LoginLog({
-      email,
+      email: xss(email),
       success,
     });
     await loginLog.save();
@@ -124,7 +123,9 @@ const authenticateToken = (req, res, next) => {
 };
 
 app.post("/api/signup", async (req, res) => {
-  const { email, password, isAdmin } = req.body;
+  const sanitizedEmail = xss(req.body.email).toLowerCase();
+  const password = req.body.password;
+  const isAdmin = Boolean(req.body.isAdmin);
 
   if (password.length < 8) {
     return res
@@ -132,7 +133,7 @@ app.post("/api/signup", async (req, res) => {
       .json({ message: "Lösenordet måste vara minst 8 tecken långt." });
   }
 
-  if (password.toLowerCase() === email.toLowerCase()) {
+  if (password.toLowerCase() === sanitizedEmail.toLowerCase()) {
     return res
       .status(400)
       .json({ message: "Lösenordet får inte vara samma som e-posten." });
@@ -152,7 +153,7 @@ app.post("/api/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = new User({
-      email,
+      email: sanitizedEmail,
       password: hashedPassword,
       isAdmin: isAdmin || false,
     });
@@ -167,20 +168,28 @@ app.post("/api/signup", async (req, res) => {
 });
 
 app.post("/api/signin", async (req, res) => {
-  const { email, password } = req.body;
+  const normalizedEmail = req.body.email.toLowerCase();
+  const password = req.body.password;
 
   try {
-    const user = await User.findOne({ email });
+    const escapedEmail = normalizedEmail.replace(/[*+?^${}()|[\]\\"'\$]/g, "");
+    console.log(escapedEmail);
+
+    const user = await User.findOne({
+      $and: [
+        // { email: { $eq: normalizedEmail } },
+        { email: { $regex: `^${escapedEmail}$` } },
+      ],
+    });
+
     if (!user) {
-      // Logga misslyckat försök - användare hittades inte
-      await logLoginAttempt(email, false);
+      await logLoginAttempt(normalizedEmail, false);
       return res.status(400).json({ message: "Användare hittades inte" });
     }
 
     if (user.lockUntil && user.lockUntil > new Date()) {
       const remainingTime = Math.ceil((user.lockUntil - new Date()) / 1000);
-      // Logga misslyckat försök - konto låst
-      await logLoginAttempt(email, false);
+      await logLoginAttempt(normalizedEmail, false);
       return res.status(403).json({
         message: `För många misslyckade inloggningsförsök. Vänta ${remainingTime} sekunder innan du försöker igen.`,
         locked: true,
@@ -191,8 +200,7 @@ app.post("/api/signin", async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
-      // Logga misslyckat försök - fel lösenord
-      await logLoginAttempt(email, false);
+      await logLoginAttempt(normalizedEmail, false);
 
       user.loginAttempts = (user.loginAttempts || 0) + 1;
 
@@ -214,15 +222,17 @@ app.post("/api/signin", async (req, res) => {
       });
     }
 
-    // Logga lyckat inloggningsförsök
-    await logLoginAttempt(email, true);
+    await logLoginAttempt(normalizedEmail, true);
 
     user.loginAttempts = 0;
     user.lockUntil = null;
     await user.save();
 
     const token = jwt.sign(
-      { email: user.email, isAdmin: user.isAdmin },
+      {
+        email: normalizedEmail,
+        isAdmin: user.isAdmin,
+      },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRATION }
     );
@@ -241,7 +251,13 @@ app.get("/api/protected", authenticateToken, (req, res) => {
 app.get("/api/products", async (req, res) => {
   try {
     const products = await Product.find();
-    res.json(products);
+
+    const sanitizedProducts = products.map((product) => ({
+      ...product.toObject(),
+      name: xss(product.name),
+    }));
+
+    res.json(sanitizedProducts);
   } catch (error) {
     res
       .status(500)
@@ -256,12 +272,31 @@ app.post("/api/products", authenticateToken, async (req, res) => {
     });
   }
 
-  const { name, price, stockCount } = req.body; // Lägg till stockCount här
+  const sanitizedName = xss(req.body.name);
+  const price = Number(req.body.price);
+  const stockCount = Number(req.body.stockCount);
+
+  if (isNaN(price) || isNaN(stockCount)) {
+    return res.status(400).json({
+      message: "Pris och lagersaldo måste vara giltiga nummer.",
+    });
+  }
 
   try {
-    const product = new Product({ name, price, stockCount }); // Inkludera stockCount
+    const product = new Product({
+      name: sanitizedName,
+      price: price,
+      stockCount: stockCount,
+    });
+
     await product.save();
-    res.status(201).json({ message: "Produkt skapad", product });
+    res.status(201).json({
+      message: "Produkt skapad",
+      product: {
+        ...product.toObject(),
+        name: sanitizedName,
+      },
+    });
   } catch (error) {
     res
       .status(500)
